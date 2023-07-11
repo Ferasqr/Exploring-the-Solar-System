@@ -13,27 +13,25 @@ void PlanetArray(SolarSystem* A, float Ar, glm::mat4& ViewPrj, glm::mat4& World,
 	const float farPlane = 100000.0f;
 
 
-	static float yaw = glm::radians(0.0f);
-	static float yaw_char = glm::radians(0.0f);
-	static float pitch = glm::radians(0.0f);
-	static float roll = glm::radians(0.0f);
-	glm::quat rot = glm::quat(pitch, yaw, roll, 0);
+
 
 
 	// Player starting point
 	//glm::vec3 StartingPosition = SPos;
-	glm::vec3 StartingPosition = glm::vec3(0, 0.0, -12.0f);
+	glm::vec3 StartingPosition = glm::vec3(0, 0, -12.0f);
 
 	// Camera target height and distance
-	const float camHeight = 0.0015;
-	const float camDist = 0.015;
+	const float camHeight = 0.0015f;
+	const float camDist = 0.015f;
 	// Camera Pitch limits
 	//const float minPitch = glm::radians(-180.0f);
 	//const float maxPitch = glm::radians(180.0f);
 	// Rotation and motion speed
 	const float ROT_SPEED = glm::radians(30.0f);
 	const float MOVE_SPEED = ObjSpeed;
-
+	// Camera Pitch limits
+	const float minPitch = glm::radians(-8.75f);
+	const float maxPitch = glm::radians(60.0f);
 	// Integration with the timers and the controllers
 	// returns:
 	// <float deltaT> the time passed since the last frame
@@ -46,73 +44,57 @@ void PlanetArray(SolarSystem* A, float Ar, glm::mat4& ViewPrj, glm::mat4& World,
 	A->getSixAxis(deltaT, m, r, fire);
 
 	// Game Logic implementation
-	// Current Player Position - statc variables make sure thattheri value remain unchanged in subsequent calls to the procedure
-	glm::mat4 M = glm::perspective(FOVy, Ar, nearPlane, farPlane);
-	M[1, 1] *= -1;
-
+// Current Player Position - statc variables make sure thattheri value remain unchanged in subsequent calls to the procedure
+	glm::vec3 Up = glm::vec3(0, 1, 0);
 	static glm::vec3 Pos = StartingPosition;
-	static glm::vec3 Pold = StartingPosition;
+	static float yaw, pitch, roll;
 
-	// To be done in the assignment
-	glm::mat4 MatWorld;
+	glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1), yaw, glm::vec3(0, 1, 0));// Calculate rotation matrix
 
-	glm::vec3 ux = glm::vec3(glm::rotate(glm::mat4(1), yaw, glm::vec3(0, 1, 0)) * glm::vec4(1, 0, 0, 1));
+	// Calculate transformed direction vectors using rotationMatrix
+	glm::vec3 ux = glm::vec3(rotationMatrix * glm::vec4(1, 0, 0, 1));
 	glm::vec3 uy = glm::vec3(0, 1, 0);
-	glm::vec3 uz = glm::vec3(glm::rotate(glm::mat4(1), yaw, glm::vec3(0, 1, 0)) * glm::vec4(0, 0, -1, 1));
-
-	//glm::vec3 ux = glm::vec3(glm::mat4(rot) * glm::vec4(1, 0, 0, 1));
-	//glm::vec3 uy = glm::vec3(glm::mat4(rot) * glm::vec4(0, 1, 0, 1));
-	//glm::vec3 uz = glm::vec3(glm::mat4(rot) * glm::vec4(0, 0, -1, 1));
-
-	//rot = rot * glm::rotate(glm::quat(1, 0, 0, 0), ROT_SPEED * r.x * deltaT, glm::vec3(1, 0, 0));
-	//rot = rot * glm::rotate(glm::quat(1, 0, 0, 0), ROT_SPEED * r.y * deltaT, glm::vec3(0, 1, 0));
-	//rot = rot * glm::rotate(glm::quat(1, 0, 0, 0), ROT_SPEED * r.z * deltaT, glm::vec3(0, 0, 1));
+	glm::vec3 uz = glm::vec3(rotationMatrix * glm::vec4(0, 0, -1, 1));
 
 	pitch += ROT_SPEED * r.x * deltaT;
+	pitch = glm::clamp(pitch, minPitch, maxPitch);// Update pitch, clamping within limits
+
+	// Update yaw and roll angles
 	yaw += ROT_SPEED * r.y * deltaT;
 	roll += ROT_SPEED * r.z * deltaT;
 
+	// Update position vector
 	Pos += ux * MOVE_SPEED * m.x * deltaT;
 	Pos += uy * MOVE_SPEED * m.y * deltaT;
 	Pos += uz * MOVE_SPEED * m.z * deltaT;
 
-	/*
-	if (Pos.y < 0)
-		Pos.y = 0;
-	*/
-
-	int lambda = 100;
-	glm::vec3 P = Pold * exp(-lambda * deltaT) + Pos * (1 - exp(-lambda * deltaT));
-
-	glm::mat4 MatWorld_cam =
-		glm::translate(glm::mat4(1.0f), glm::vec3(P)) *
-		glm::rotate(glm::mat4(1.0f), yaw, glm::vec3(0, 1, 0));
-
-	glm::vec3 c, a;
-
-	/* if (pitch < minPitch)
-		pitch = minPitch;
-	else if (pitch > maxPitch)
-		pitch = maxPitch; */
-
-	c = MatWorld_cam * glm::vec4(0, camHeight + camDist * sin(pitch), camDist * cos(pitch), 1);
-	a = MatWorld_cam * glm::vec4(0, 0, 0, 1);
-
-	glm::mat4 ViewMat = glm::lookAt(glm::vec3(c.x, c.y, c.z), a, glm::vec3(0, 1, 0));
-
-	Pold = P;
-
-	a = glm::vec3(a.x, a.y, a.z) + glm::vec3(0, 0, camHeight);
-
-	yaw_char += ROT_SPEED * r.y * deltaT;
+	glm::mat4 rotationYaw = glm::rotate(glm::mat4(1), yaw, glm::vec3(0, 1, 0));
+	glm::mat4 rotationPitch = glm::rotate(glm::mat4(1), pitch, glm::vec3(1, 0, 0));
+	glm::mat4 rotationRoll = glm::rotate(glm::mat4(1), roll, glm::vec3(0, 0, 1));
+	glm::mat4 Rot = rotationYaw * rotationPitch * rotationRoll; // Combine rotation matrices
 
 
-	MatWorld =
-		glm::translate(glm::mat4(1.0f), glm::vec3(Pos)) *
-		glm::rotate(glm::mat4(1.0f), yaw_char, glm::vec3(0, 1, 0));
+	glm::mat4 Proj = glm::perspective(FOVy, Ar, nearPlane, farPlane); //perspective projection matrix
+	Proj[1][1] *= -1;
 
-	ViewPrj = M * ViewMat;
-	World = MatWorld;
+	glm::vec3 c = glm::vec3(0, camHeight, camDist); //camera position vector
+	glm::mat4 translation = glm::translate(glm::mat4(1), glm::vec3(Rot * glm::vec4(c, 1)));
+	glm::mat4 View = glm::lookAt(glm::vec3(translation * glm::vec4(Pos, 1)), Pos, Up); //view matrix
+	ViewPrj = Proj * View;
 
+	translation = glm::translate(glm::mat4(1), Pos);
+	World = translation * Rot;
+
+	//damping? 8 s43
+	glm::mat4 Pnew = ViewPrj;
+	glm::mat4 pOld = glm::mat4(1);
+	float dampingspeed = 10;
+	if (pOld == glm::mat4(1))
+		pOld = ViewPrj;
+
+	float factor = exp(-dampingspeed * deltaT);
+	ViewPrj = pOld * factor + Pnew * (1 - factor), -1.0f, 1.0f;
+
+	pOld = ViewPrj;
 }
 
