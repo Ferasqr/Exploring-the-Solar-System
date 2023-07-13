@@ -200,6 +200,7 @@ public:
 	void createVertexBuffer();
 
 	void init(BaseProject* bp, VertexDescriptor* VD, std::string file, ModelType MT);
+	void initMesh(BaseProject* bp, VertexDescriptor* VD);
 	void cleanup();
 	void bind(VkCommandBuffer commandBuffer);
 };
@@ -2253,6 +2254,16 @@ void Model<Vert>::createIndexBuffer() {
 	vkMapMemory(BP->device, indexBufferMemory, 0, bufferSize, 0, &data);
 	memcpy(data, indices.data(), (size_t)bufferSize);
 	vkUnmapMemory(BP->device, indexBufferMemory);
+}
+
+template <class Vert>
+void Model<Vert>::initMesh(BaseProject* bp, VertexDescriptor* vd) {
+	BP = bp;
+	VD = vd;
+	std::cout << "[Manual] Vertices: " << vertices.size()
+		<< "\nIndices: " << indices.size() << "\n";
+	createVertexBuffer();
+	createIndexBuffer();
 }
 
 template <class Vert>
