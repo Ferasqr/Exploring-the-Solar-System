@@ -126,10 +126,10 @@ protected:
 		GWS = glm::scale(glm::mat4(1), glm::vec3(0.010f)); //Spaceship
 
 		GWM[0] = glm::translate(glm::scale(glm::mat4(1), glm::vec3(10.9)), glm::vec3(0, 0, 0)); //Sun
-		GWM[1] = glm::translate(glm::scale(glm::mat4(1), glm::vec3(0.0383f)), glm::vec3(0, 0, -1200.980f)); //Mercury
+		GWM[1] = glm::translate(glm::scale(glm::mat4(1), glm::vec3(0.0382f)), glm::vec3(0, 0, -1200.980f)); //Mercury
 		GWM[2] = glm::translate(glm::scale(glm::mat4(1), glm::vec3(0.0949f)), glm::vec3(0, 0, -899.660f)); //Venus
 		GWM[3] = glm::translate(glm::scale(glm::mat4(1), glm::vec3(0.10f)), glm::vec3(0, 0, -1178.240f)); //Earth
-		GWM[4] = glm::translate(glm::scale(glm::mat4(1), glm::vec3(0.027f)), glm::vec3(1, 0, -4336.810f)); //Moon
+		GWM[4] = glm::translate(glm::scale(glm::mat4(1), glm::vec3(0.027f)), glm::vec3(0, 0, -4336.810f)); //Moon
 		GWM[5] = glm::translate(glm::scale(glm::mat4(1), glm::vec3(0.0533f)), glm::vec3(0, 0, -3365.660f)); //Mars
 		GWM[6] = glm::translate(glm::scale(glm::mat4(1), glm::vec3(1.1209f)), glm::vec3(0, 0, -545.0230f)); //Jupiter
 		GWM[7] = glm::translate(glm::scale(glm::mat4(1), glm::vec3(0.40f)), glm::vec3(0, 0, -5620.710f)); //Uranus
@@ -251,7 +251,7 @@ protected:
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_Z)) {
-			ObjSpeed += 0.10f;
+			ObjSpeed += 0.050f;
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_C)) {
@@ -262,7 +262,7 @@ protected:
 		}
 
 		if (glfwGetKey(window, GLFW_KEY_SPACE)) {
-			ObjSpeed = 0.10f;
+			ObjSpeed = 0.010f;
 		}
 
 		PlanetArray(this, Ar, ViewPrj, WM, ObjSpeed);
@@ -270,7 +270,34 @@ protected:
 		UniformBufferObject ubo{};
 		// Here is where you actually update your uniforms
 
-		//glm::mat4 baseTr = glm::rotate(glm::mat4(1.0f), time * glm::radians(360.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		float rotationAngle = 0.0f;  // Initial rotation angle
+		const float rotationSpeed = 1.0f;  // Rotation speed in radians per second
+		
+		
+		static auto startTime = std::chrono::high_resolution_clock::now();
+		static float lastTime = 0.0f;
+
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		float time = std::chrono::duration<float, std::chrono::seconds::period>
+			(currentTime - startTime).count();
+		float deltaT = time - lastTime;
+		lastTime = time;
+
+		glm::mat4 RotPl[11];
+
+		// Rotate each planet and moon
+		RotPl[0] = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));  // Sun
+		RotPl[1] = glm::rotate(glm::mat4(1.0f), time * glm::radians(1.69490f), glm::vec3(0.0f, 1.0f, 0.0f));   // Mercury
+		RotPl[2] = glm::rotate(glm::mat4(1.0f), time * glm::radians(-0.41840f), glm::vec3(0.0f, 1.0f, 0.0f));   // Venus
+		RotPl[3] = glm::rotate(glm::mat4(1.0f), time * glm::radians(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));   // Earth
+		RotPl[4] = glm::rotate(glm::mat4(1.0f), time * glm::radians(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));   // Moon
+		RotPl[5] = glm::rotate(glm::mat4(1.0f), time * glm::radians(0.96730f), glm::vec3(0.0f, 1.0f, 0.0f));   // Mars
+		RotPl[6] = glm::rotate(glm::mat4(1.0f), time * glm::radians(2.4355f), glm::vec3(0.0f, 1.0f, 0.0f));   // Jupiter
+		RotPl[7] = glm::rotate(glm::mat4(1.0f), time * glm::radians(-1.38610f), glm::vec3(0.0f, 0.0f, 1.0f));   // Uranus
+		RotPl[8] = glm::rotate(glm::mat4(1.0f), time * glm::radians(1.4887f), glm::vec3(0.0f, 1.0f, 0.0f));   // Neptune
+		RotPl[9] = glm::rotate(glm::mat4(1.0f), time * glm::radians(2.2191f), glm::vec3(0.0f, 1.0f, 0.0f));   // Saturn
+		RotPl[10] = glm::rotate(glm::mat4(1.0f), time * glm::radians(2.2191f), glm::vec3(0.0f, 1.0f, 0.0f));  // Saturn's Rings
+
 
 
 
@@ -287,12 +314,15 @@ protected:
 		DS1.map(currentImage, &gubo, sizeof(gubo), 2);
 
 		for (int i = 0; i < 11; i++) {
-			ubo.mMat = GWM[i];
+		
+			ubo.mMat = GWM[i] * RotPl[i];
 			ubo.mvpMat = ViewPrj * ubo.mMat;
 			ubo.nMat = glm::inverse(glm::transpose(ubo.mMat));
 			DSG[i].map(currentImage, &ubo, sizeof(ubo), 0);
 			DSG[i].map(currentImage, &gubo, sizeof(gubo), 2);
+
 		}
+
 	}
 
 
