@@ -40,11 +40,10 @@ protected:
 	// Here you list all the Vulkan objects you need:
 
 	// Descriptor Layouts [what will be passed to the shaders]
-	DescriptorSetLayout DSL1, DSLMesh,DSLOverlay;
+	DescriptorSetLayout DSL1, DSLOverlay;
 
 	// Pipelines [Shader couples]
 	VertexDescriptor VD;
-	VertexDescriptor VMesh;
 	VertexDescriptor VOverlay;
 
 	Pipeline P1;
@@ -104,16 +103,7 @@ protected:
 				{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS},
 				{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
-		DSLMesh.init(this, {
-			// this array contains the bindings:
-			// first  element : the binding number
-			// second element : the type of element (buffer or texture)
-			//                  using the corresponding Vulkan constant
-			// third  element : the pipeline stage where it will be used
-			//                  using the corresponding Vulkan constant
-			{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS},
-			{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
-			});
+
 		//Vertex Descriptors
 		VD.init(this, {
 				  {0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX}
@@ -125,18 +115,22 @@ protected:
 			  {0, 2, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, UV),
 					 sizeof(glm::vec2), UV}
 			});
-			
+
 
 		// Pipelines [Shader couples]
 		// The last array, is a vector of pointer to the layouts of the sets that will
 		// be used in this pipeline. The first element will be set 0, and so on..
-		P1.init(this, &VD,"shaders/PhongVert.spv", "shaders/PhongFrag.spv", { &DSL1 });
+		P1.init(this, &VD, "shaders/PhongVert.spv", "shaders/PhongFrag.spv", { &DSL1 });
+		POverlay.init(this, &VOverlay, "shaders/OverlayVert.spv", "shaders/OverlayFrag.spv", { &DSLOverlay });
+		POverlay.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL,
+			VK_CULL_MODE_NONE, false);
+		
 		//P1.init(this, &VD, "shaders/SunShader.spv", { &DSL2 });
 		//PS.init(this, &VD, "")
 
 		// Models, textures and Descriptors (values assigned to the uniforms)
 		M1.init(this, &VD, "models/Starship2.obj", OBJ);
-		MG.init(this, &VD,"models/Sphere.obj", OBJ);
+		MG.init(this, &VD, "models/Sphere.obj", OBJ);
 		MGR.init(this, &VD, "models/Saturn_Ring.obj", OBJ);
 
 		T1.init(this, "textures/Spaceship.png");
@@ -183,6 +177,7 @@ protected:
 	void pipelinesAndDescriptorSetsInit() {
 		// This creates a new pipeline (with the current surface), using its shaders
 		P1.create();
+		POverlay.create();
 
 		DS1.init(this, &DSL1, {
 					{0, UNIFORM, sizeof(UniformBufferObject), nullptr},
@@ -214,6 +209,7 @@ protected:
 	// Here you destroy your pipelines and Descriptor Sets!
 	void pipelinesAndDescriptorSetsCleanup() {
 		P1.cleanup();
+		POverlay.cleanup();
 
 		DS1.cleanup();
 		DSG[0].cleanup();
@@ -237,6 +233,9 @@ protected:
 	// You also have to destroy the pipelines
 	void localCleanup() {
 		T1.cleanup();
+		TKey.cleanup();
+		TSplash.cleanup();
+
 		M1.cleanup();
 		MG.cleanup();
 		TG[0].cleanup();
@@ -258,6 +257,7 @@ protected:
 		DSL1.cleanup();
 
 		P1.destroy();
+		POverlay.destroy();
 	}
 
 	// Here it is the creation of the command buffer:
@@ -287,12 +287,12 @@ protected:
 
 		POverlay.bind(commandBuffer);
 		MKey.bind(commandBuffer);
-		DSKey.bind(commandBuffer, POverlay,  currentImage);
+		DSKey.bind(commandBuffer, POverlay, currentImage);
 		vkCmdDrawIndexed(commandBuffer,
 			static_cast<uint32_t>(MKey.indices.size()), 1, 0, 0, 0);
 
 		MSplash.bind(commandBuffer);
-		DSSplash.bind(commandBuffer, POverlay,  currentImage);
+		DSSplash.bind(commandBuffer, POverlay, currentImage);
 		vkCmdDrawIndexed(commandBuffer,
 			static_cast<uint32_t>(MSplash.indices.size()), 1, 0, 0, 0);
 
@@ -306,10 +306,10 @@ protected:
 	void updateUniformBuffer(uint32_t currentImage) {
 		static auto startTime = std::chrono::high_resolution_clock::now();
 		static float lastTime = 0.0f;
-		
+
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float time = std::chrono::duration<float, std::chrono::minutes::period>
-					(currentTime - startTime).count();
+			(currentTime - startTime).count();
 		float deltaT = time - lastTime;
 		lastTime = time;
 
@@ -342,13 +342,13 @@ protected:
 
 		UniformBufferObject ubo{};
 		// Here is where you actually update your uniforms
-		
-		
-		glm::mat4 baseTr = glm::rotate(glm::mat4(1.0f),  glm::radians(360.0f)* time  , glm::vec3(0.0f, 1.0f, 0.0f));
+
+
+		glm::mat4 baseTr = glm::rotate(glm::mat4(1.0f), glm::radians(360.0f) * time, glm::vec3(0.0f, 1.0f, 0.0f));
 
 
 		OverlayUniformBlock uboKey, uboSplash;
-			// updates global uniforms
+		// updates global uniforms
 		GlobalUniformBufferObject gubo{};
 		gubo.lightDir = glm::normalize(glm::vec3(0.0f, 0.0f, 1.0f)); // Set the light direction towards the positive z-axis (or any other direction you desire)
 		gubo.lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f); // Set the light color (white in this case)
@@ -362,14 +362,14 @@ protected:
 		ubo.nMat = glm::inverse(glm::transpose(ubo.mMat));
 		DS1.map(currentImage, &ubo, sizeof(ubo), 0);
 		DS1.map(currentImage, &gubo, sizeof(gubo), 2);
-		
+
 		uboKey.visible = (gameState == 1) ? 1.0f : 0.0f;
 		DSKey.map(currentImage, &uboKey, sizeof(uboKey), 0);
 
 		uboSplash.visible = (gameState == 0) ? 1.0f : 0.0f;
 		DSSplash.map(currentImage, &uboSplash, sizeof(uboSplash), 0);
 		for (int i = 0; i < 11; i++) {
-			ubo.mMat = GWM[i]* baseTr;
+			ubo.mMat = GWM[i] * baseTr;
 			ubo.mvpMat = ViewPrj * ubo.mMat;
 
 			ubo.nMat = glm::inverse(glm::transpose(ubo.mMat));
@@ -388,18 +388,18 @@ protected:
 
 // This is the main: probably you do not need to touch this!
 int main() {
-	
+
 	SolarSystem app;
 
 
 
-		try {
-			app.run();
-		}
-		catch (const std::exception& e) {
-			std::cerr << e.what() << std::endl;
-			return EXIT_FAILURE;
-		}
+	try {
+		app.run();
+	}
+	catch (const std::exception& e) {
+		std::cerr << e.what() << std::endl;
+		return EXIT_FAILURE;
+	}
 
 	return EXIT_SUCCESS;
 
