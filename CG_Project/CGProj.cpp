@@ -137,7 +137,7 @@ protected:
 		MS.init(this, &VD2, "models/Sphere.obj", OBJ);
 		MGR.init(this, &VD, "models/Saturn_Ring.obj", OBJ);
 
-		T1.init(this, "textures/Spaceship2.jpg");
+		T1.init(this, "textures/Spaceship3.jpg");
 		TG[0].init(this, "textures/Sun.jpg");
 		TG[1].init(this, "textures/Mercury.jpg");
 		TG[2].init(this, "textures/Venus.jpg");
