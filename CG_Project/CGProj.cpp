@@ -1,6 +1,12 @@
 // This has been adapted from the Vulkan tutorial
 
 #include "CGP_Starter.hpp"
+#include "TextMaker.hpp"
+
+std::vector<SingleText> demoText = {
+   
+	{1, {"Z : increase speed  | C : decrease speed | Space : default speed ", "", "", ""}, 0, 0}
+};
 
 // The uniform buffer object used in this example
 struct UniformBufferObject {
@@ -49,6 +55,7 @@ protected:
 	glm::mat4 GWM[11];
 	glm::mat4 GWS;
 
+	TextMaker txt;
 	// Here you set the main application parameters
 	void setWindowParameters() {
 		// window size, titile and initial background
@@ -142,7 +149,7 @@ protected:
 		TG[8].init(this, "textures/Neptune.jpg");
 		TG[9].init(this, "textures/Saturn.jpg");
 		TG[10].init(this, "textures/Saturn Ring.png");
-
+		txt.init(this, &demoText);
 	}
 
 	// Here you create your pipelines and Descriptor Sets!
@@ -154,7 +161,7 @@ protected:
 			{0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 			{1, TEXTURE, 0, &T1},
 			{2, UNIFORM, sizeof(GlobalUniformBufferObject), nullptr},
-			{3, TEXTURE, 0,& T1}
+			{3, TEXTURE, 0,&T1}
 			});
 
 		for (int i = 1; i < 11; i++) {
@@ -172,8 +179,11 @@ protected:
 			{2, UNIFORM, sizeof(GlobalUniformBufferObject), nullptr},
 			{3, TEXTURE, 0,&TG[0]}
 			});
+		txt.pipelinesAndDescriptorSetsInit();
 
-	}
+
+	}		
+
 
 	// Here you destroy your pipelines and Descriptor Sets!
 	void pipelinesAndDescriptorSetsCleanup() {
@@ -184,6 +194,8 @@ protected:
 		for (int i = 0; i < 11; i++) {
 			DSG[i].cleanup();
 		}
+		txt.pipelinesAndDescriptorSetsCleanup();
+
 	}
 
 	// Here you destroy all the Models, Texture and Desc. Set Layouts you created!
@@ -198,12 +210,15 @@ protected:
 		MG.cleanup();
 		MS.cleanup();
 		MGR.cleanup();
-		
+
 		DSL1.cleanup();
 		DSL2.cleanup();
 
 		P1.destroy();
 		P2.destroy();
+		txt.localCleanup();
+
+
 	}
 
 	// Here is where you update the command buffer:
@@ -211,13 +226,13 @@ protected:
 	// with their buffers and textures
 	void populateCommandBuffer(VkCommandBuffer commandBuffer, int currentImage) {
 		P1.bind(commandBuffer);
-		
+
 		M1.bind(commandBuffer);
 		DS1.bind(commandBuffer, P1, currentImage);
 		vkCmdDrawIndexed(commandBuffer,
 			static_cast<uint32_t>(M1.indices.size()), 1, 0, 0, 0);
 
-		MG.bind(commandBuffer);	
+		MG.bind(commandBuffer);
 		for (int i = 1; i < 11; i++) {
 			DSG[i].bind(commandBuffer, P1, currentImage);
 
@@ -236,6 +251,8 @@ protected:
 
 		vkCmdDrawIndexed(commandBuffer,
 			static_cast<uint32_t>(MGR.indices.size()), 1, 0, 0, 0);
+		txt.populateCommandBuffer(commandBuffer, currentImage);
+
 	}
 
 	// Helper function to update the time value
