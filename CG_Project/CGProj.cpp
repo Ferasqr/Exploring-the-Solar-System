@@ -21,7 +21,13 @@ struct GlobalUniformBufferObject {
 	alignas(16) glm::vec3 eyePos;
 };
 
-
+struct OverlayUniformBlock {
+	alignas(4) float visible;
+};
+struct VertexOverlay {
+	glm::vec2 pos;
+	glm::vec2 UV;
+};
 
 struct Vertex {
 	glm::vec3 pos;
@@ -38,20 +44,29 @@ protected:
 	// Here you list all the Vulkan objects you need:
 
 	// Descriptor Layouts [what will be passed to the shaders]
-	DescriptorSetLayout DSL1, DSL2;
+	DescriptorSetLayout DSL1, DSL2 , DSLOverlay;
 
 	// Pipelines [Shader couples]
 	VertexDescriptor VD, VD2;
+	VertexDescriptor VOverlay;
 	Pipeline P1, P2;
+	Pipeline POverlay;
 
 	// Models, textures and Descriptors (values assigned to the uniforms)
 	Model<Vertex> M1, MS, MG, MGR;
+	Model<VertexOverlay>  MSplash;
+
 	Texture T1, TG[11];
+	Texture  TSplash;
+
 	DescriptorSet DS1, DSG[11];
+	DescriptorSet  DSSplash;
+	OverlayUniformBlock uboSplash;
 
 	// Other application parameters
 	float Ar;
 	float ObjSpeed = 0.10f;
+	int gameState ;
 	glm::mat4 GWM[11];
 	glm::mat4 GWS;
 
@@ -70,7 +85,7 @@ protected:
 		texturesInPool = 100;
 		setsInPool = 100;
 
-		Ar = 4.0f / 3.0f;
+		Ar = (float)windowWidth / (float)windowHeight;
 	}
 
 	// What to do when the window changes size
@@ -100,7 +115,10 @@ protected:
 			{2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS},
 			{3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
 			});
-
+		DSLOverlay.init(this, {
+			{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS},
+			{1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT}
+			});
 		// Vertex Descriptors
 		VD.init(this, {
 			{0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX}
@@ -123,14 +141,31 @@ protected:
 				{0, 2, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, UV),
 					sizeof(glm::vec2), UV}
 			});
-
+		VOverlay.init(this, {
+				  {0, sizeof(VertexOverlay), VK_VERTEX_INPUT_RATE_VERTEX}
+			}, {
+			  {0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(VertexOverlay, pos),
+					 sizeof(glm::vec2), OTHER},
+			  {0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(VertexOverlay, UV),
+					 sizeof(glm::vec2), UV}
+			});
 
 		// Pipelines [Shader couples]
 		// The last array is a vector of pointers to the layouts of the sets that will
 		// be used in this pipeline. The first element will be set 0, and so on...
 		P1.init(this, &VD, "shaders/PlanetVert.spv", "shaders/PlanetFrag.spv", { &DSL1 });
 		P2.init(this, &VD2, "shaders/SunVert.spv", "shaders/SunFrag.spv", { &DSL2 });
+		POverlay.init(this, &VOverlay, "shaders/OverlayVert.spv", "shaders/OverlayFrag.spv", { &DSLOverlay });
+		POverlay.setAdvancedFeatures(VK_COMPARE_OP_LESS_OR_EQUAL, VK_POLYGON_MODE_FILL,
+			VK_CULL_MODE_NONE, false);
+		// Creates a mesh with direct enumeration of vertices and indices
+		
 
+		// Creates a mesh with direct enumeration of vertices and indices
+		MSplash.vertices = { {{-1.0f, -1.0f}, {0.0f, 0.0f}}, {{-1.0f, 1.0f}, {0.0f,1.0f}},
+						 {{ 1.0f,-1.0f}, {1.0f,0.0f}}, {{ 1.0f, 1.0f}, {1.0f,1.0f}} };
+		MSplash.indices = { 0, 1, 2,    1, 2, 3 };
+		MSplash.initMesh(this, &VOverlay);
 		// Models, textures, and Descriptors (values assigned to the uniforms)
 		M1.init(this, &VD, "models/Starship2.obj", OBJ);
 		MG.init(this, &VD, "models/Sphere.obj", OBJ);
@@ -150,6 +185,9 @@ protected:
 		TG[9].init(this, "textures/Saturn.jpg");
 		TG[10].init(this, "textures/Saturn Ring.png");
 		txt.init(this, &demoText);
+		TSplash.init(this, "textures/SplashScreen.png");
+
+		gameState = 0;
 	}
 
 	// Here you create your pipelines and Descriptor Sets!
@@ -157,6 +195,7 @@ protected:
 		// This creates a new pipeline (with the current surface), using its shaders
 		P1.create();
 		P2.create();
+		POverlay.create();
 		DS1.init(this, &DSL1, {
 			{0, UNIFORM, sizeof(UniformBufferObject), nullptr},
 			{1, TEXTURE, 0, &T1},
@@ -179,6 +218,13 @@ protected:
 			{2, UNIFORM, sizeof(GlobalUniformBufferObject), nullptr},
 			{3, TEXTURE, 0,&TG[0]}
 			});
+
+
+		DSSplash.init(this, &DSLOverlay, {
+					{0, UNIFORM, sizeof(OverlayUniformBlock), nullptr},
+					{1, TEXTURE, 0, &TSplash}
+			});
+
 		txt.pipelinesAndDescriptorSetsInit();
 
 
@@ -189,11 +235,14 @@ protected:
 	void pipelinesAndDescriptorSetsCleanup() {
 		P1.cleanup();
 		P2.cleanup();
-
+		POverlay.cleanup();
 		DS1.cleanup();
 		for (int i = 0; i < 11; i++) {
 			DSG[i].cleanup();
 		}
+
+
+		DSSplash.cleanup();
 		txt.pipelinesAndDescriptorSetsCleanup();
 
 	}
@@ -206,16 +255,24 @@ protected:
 			TG[i].cleanup();
 		}
 
+
+		TSplash.cleanup();
+
 		M1.cleanup();
 		MG.cleanup();
 		MS.cleanup();
 		MGR.cleanup();
 
+		MSplash.cleanup();
+
 		DSL1.cleanup();
 		DSL2.cleanup();
+		DSLOverlay.cleanup();
 
 		P1.destroy();
 		P2.destroy();
+		POverlay.destroy();
+
 		txt.localCleanup();
 
 
@@ -251,6 +308,19 @@ protected:
 
 		vkCmdDrawIndexed(commandBuffer,
 			static_cast<uint32_t>(MGR.indices.size()), 1, 0, 0, 0);
+
+
+		POverlay.bind(commandBuffer);
+
+
+
+
+		MSplash.bind(commandBuffer);
+		DSSplash.bind(commandBuffer, POverlay, currentImage);
+		vkCmdDrawIndexed(commandBuffer,
+			static_cast<uint32_t>(MSplash.indices.size()), 1, 0, 0, 0);
+
+
 		txt.populateCommandBuffer(commandBuffer, currentImage);
 
 	}
@@ -325,10 +395,17 @@ protected:
 		if (glfwGetKey(window, GLFW_KEY_ESCAPE)) {
 			glfwSetWindowShouldClose(window, GL_TRUE);
 		}
-
 		if (glfwGetKey(window, GLFW_KEY_Z)) {
 			ObjSpeed += 0.0250f;
 		}
+
+		//std::cout << gameState << "\n";
+		//Splash screen state
+		switch (gameState) 
+		case 0: // wait key state
+			if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS) {
+				gameState = 1;	// Hide the splash
+			}
 
 		if (glfwGetKey(window, GLFW_KEY_C)) {
 			ObjSpeed -= 0.020f;
@@ -357,6 +434,14 @@ protected:
 		DS1.map(currentImage, &ubo, sizeof(ubo), 0);
 		DS1.map(currentImage, &gubo, sizeof(gubo), 2);
 
+
+
+
+		uboSplash.visible = (gameState == 0) ? 1.0f : 0.0f;
+		DSSplash.map(currentImage, &uboSplash, sizeof(uboSplash), 0);
+
+
+
 		for (int i = 0; i < 11; i++) {
 			ubo.mMat = GWM[i] * RotPl[i];
 			ubo.mvpMat = ViewPrj * ubo.mMat;
@@ -367,19 +452,22 @@ protected:
 	}
 };
 
+
+
 #include "CGP_Logic.hpp"
 
 // This is the main: you probably do not need to modify this!
-int main() {
-	SolarSystem app;
+	int main() {
+		SolarSystem app;
 
-	try {
-		app.run();
-	}
-	catch (const std::exception& e) {
-		std::cerr << e.what() << std::endl;
-		return EXIT_FAILURE;
-	}
+		try {
 
-	return EXIT_SUCCESS;
-}
+			app.run();
+		}
+		catch (const std::exception& e) {
+			std::cerr << e.what() << std::endl;
+			return EXIT_FAILURE;
+		}
+
+		return EXIT_SUCCESS;
+	}
