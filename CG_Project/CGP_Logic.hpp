@@ -1,11 +1,12 @@
 void PlanetArray(SolarSystem* A, float Ar, glm::mat4& ViewPrj, glm::mat4& World, float ObjSpeed) {
 	// The procedure must implement the game logic  to move the character in third person.
 	// Input:
-	// <Assignment07 *A> Pointer to the current assignment code. Required to read the input from the user
+	// <SolarSystem* A> Pointer to the current assignment code. Required to read the input from the user
 	// <float Ar> Aspect ratio of the current window (for the Projection Matrix)
 	// Output:
 	// <glm::mat4 &ViewPrj> the view-projection matrix of the camera
 	// <glm::mat4 &World> the world matrix of the object
+	
 	// Parameters
 	// Camera FOV-y, Near Plane and Far Plane
 	const float FOVy = glm::radians(40.0f);
