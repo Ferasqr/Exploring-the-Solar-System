@@ -23,8 +23,9 @@ Exploring the Solar System is an exciting project that allows you to embark on a
 7. **Shader Development:** Carefully crafted shaders enhance the visual realism of the game.
 
 
+![Capture](https://github.com/Ferasqr/Exploring-the-Solar-System/assets/93034515/e1bc0822-7e6b-4099-b4b3-de327cbd5717)
 
-![Capture](https://github.com/Ferasqr/CG-Project/assets/93034515/45bc36f6-769c-4d09-bd4b-17cd4e1b2969)
+
 
 
 Computer Graphics project @ Polimi
